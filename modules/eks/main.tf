@@ -1,9 +1,14 @@
 ###############################################################
-# modules/eks/main.tf
+# modules/eks/main.tf — EKS cluster + Kubernetes workloads
 ###############################################################
 
 locals {
   prefix = "${var.project}-${var.environment}"
+  services = [
+    { name = "auth"  , node_port = 30080 },
+    { name = "post"  , node_port = 30081 },
+    { name = "feed"  , node_port = 30082 },
+  ]
 }
 
 resource "aws_eks_cluster" "main" {
@@ -20,17 +25,113 @@ resource "aws_eks_cluster" "main" {
 
 resource "aws_eks_node_group" "main" {
   cluster_name    = aws_eks_cluster.main.name
-  node_group_name = "${local.prefix}-ng"
+  node_group_name = "${local.prefix}-nodes"
   node_role_arn   = var.node_role_arn
   subnet_ids      = var.private_subnet_ids
 
   scaling_config {
     desired_size = 2
-    max_size     = 4
-    min_size     = 1
+    max_size     = 2
+    min_size     = 2
   }
 
   instance_types = ["t3.medium"]
 
   tags = { Name = "${local.prefix}-node-group" }
+}
+
+data "aws_eks_cluster_auth" "main" {
+  name = aws_eks_cluster.main.name
+}
+
+data "aws_instances" "eks_workers" {
+  filter {
+    name   = "tag:eks:cluster-name"
+    values = [aws_eks_cluster.main.name]
+  }
+  filter {
+    name   = "tag:eks:nodegroup-name"
+    values = [aws_eks_node_group.main.node_group_name]
+  }
+}
+
+provider "kubernetes" {
+  host                   = aws_eks_cluster.main.endpoint
+  cluster_ca_certificate = base64decode(aws_eks_cluster.main.certificate_authority[0].data)
+  token                  = data.aws_eks_cluster_auth.main.token
+}
+
+resource "kubernetes_namespace" "app" {
+  metadata {
+    name = "social-app"
+  }
+}
+
+resource "kubernetes_deployment" "services" {
+  count = length(local.services)
+
+  metadata {
+    name      = local.services[count.index].name
+    namespace = kubernetes_namespace.app.metadata[0].name
+    labels = {
+      app = local.services[count.index].name
+    }
+  }
+
+  spec {
+    replicas = 2
+
+    selector {
+      match_labels = {
+        app = local.services[count.index].name
+      }
+    }
+
+    template {
+      metadata {
+        labels = {
+          app = local.services[count.index].name
+        }
+      }
+
+      spec {
+        container {
+          name  = local.services[count.index].name
+          image = "hashicorp/http-echo:0.2.3"
+          args  = ["-text=${local.services[count.index].name}"]
+
+          port {
+            container_port = 80
+          }
+        }
+      }
+    }
+  }
+
+  depends_on = [aws_eks_node_group.main]
+}
+
+resource "kubernetes_service" "services" {
+  count = length(local.services)
+
+  metadata {
+    name      = "${local.services[count.index].name}-svc"
+    namespace = kubernetes_namespace.app.metadata[0].name
+  }
+
+  spec {
+    selector = {
+      app = local.services[count.index].name
+    }
+
+    port {
+      port        = 80
+      target_port = 80
+      node_port   = local.services[count.index].node_port
+    }
+
+    type = "NodePort"
+  }
+
+  depends_on = [kubernetes_deployment.services]
 }

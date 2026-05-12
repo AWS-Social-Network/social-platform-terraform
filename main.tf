@@ -1,5 +1,5 @@
 ###############################################################
-# ROOT main.tf — orchestrates all modules
+# ROOT main.tf — orchestrates the localstack architecture
 ###############################################################
 
 terraform {
@@ -14,21 +14,13 @@ terraform {
       source  = "hashicorp/kubernetes"
       version = "~> 2.25"
     }
-    helm = {
-      source  = "hashicorp/helm"
-      version = "~> 2.12"
-    }
   }
 
-  # For real AWS you would point this at S3; LocalStack uses local state.
   backend "local" {
     path = "terraform.tfstate"
   }
 }
 
-###############################################################
-# Provider — LocalStack endpoint override
-###############################################################
 provider "aws" {
   region                      = var.aws_region
   access_key                  = "test"
@@ -57,10 +49,6 @@ provider "aws" {
     ssm            = var.localstack_endpoint
   }
 }
-
-###############################################################
-# Modules
-###############################################################
 
 module "iam" {
   source      = "./modules/iam"
@@ -115,11 +103,30 @@ module "eks" {
 }
 
 module "alb" {
-  source            = "./modules/alb"
-  project           = var.project
-  environment       = var.environment
-  vpc_id            = module.vpc.vpc_id
-  public_subnet_ids = module.vpc.public_subnet_ids
+  source              = "./modules/alb"
+  project             = var.project
+  environment         = var.environment
+  vpc_id              = module.vpc.vpc_id
+  public_subnet_ids   = module.vpc.public_subnet_ids
+  target_instance_ids = module.eks.worker_instance_ids
+  auth_node_port      = 30080
+  post_node_port      = 30081
+  feed_node_port      = 30082
+}
+
+module "route53" {
+  source       = "./modules/route53"
+  project      = var.project
+  environment  = var.environment
+  alb_dns_name = module.alb.alb_dns_name
+  alb_zone_id  = module.alb.alb_zone_id
+  domain_name  = var.domain_name
+}
+
+module "ecr" {
+  source      = "./modules/ecr"
+  project     = var.project
+  environment = var.environment
 }
 
 module "lambda" {
@@ -130,17 +137,6 @@ module "lambda" {
   dynamodb_table_name = module.dynamodb.main_table_name
   dynamodb_stream_arn = module.dynamodb.stream_arn
   sqs_queue_url       = module.sqs.orders_queue_url
-  sns_topic_arn       = module.sns.main_topic_arn
-  s3_bucket_name      = module.s3.main_bucket_name
-  rds_endpoint        = module.rds.endpoint
-  redis_endpoint      = module.elasticache.redis_endpoint
-}
-
-module "route53" {
-  source       = "./modules/route53"
-  project      = var.project
-  environment  = var.environment
-  alb_dns_name = module.alb.alb_dns_name
-  alb_zone_id  = module.alb.alb_zone_id
-  domain_name  = var.domain_name
+  localstack_endpoint = var.localstack_endpoint
+  ecr_repository_url  = module.ecr.repository_url
 }

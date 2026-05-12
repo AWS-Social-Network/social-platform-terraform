@@ -3,7 +3,9 @@
 ###############################################################
 
 locals {
-  prefix = "${var.project}-${var.environment}"
+  prefix      = "${var.project}-${var.environment}"
+  safe_prefix = replace(replace(replace(lower("${var.project}-${var.environment}"), " ", "-"), "_", "-"), ".", "-")
+  db_prefix   = "db-${local.safe_prefix}"
 }
 
 resource "aws_security_group" "rds" {
@@ -26,13 +28,13 @@ resource "aws_security_group" "rds" {
 }
 
 resource "aws_db_subnet_group" "main" {
-  name       = "${local.prefix}-db-subnet-group"
+  name       = lower("${local.db_prefix}-subnet-group")
   subnet_ids = var.private_subnet_ids
   tags       = { Name = "${local.prefix}-db-subnet-group" }
 }
 
 resource "aws_db_instance" "postgres" {
-  identifier             = "${local.prefix}-postgres"
+  identifier             = lower("${local.db_prefix}-postgres")
   engine                 = "postgres"
   engine_version         = "15.4"
   instance_class         = "db.t3.micro"

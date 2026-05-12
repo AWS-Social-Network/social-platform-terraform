@@ -1,12 +1,11 @@
 ###############################################################
-# modules/iam/main.tf
+# modules/iam/main.tf — IAM roles and policies for EKS and Lambda
 ###############################################################
 
 locals {
   prefix = "${var.project}-${var.environment}"
 }
 
-#--- EKS Cluster Role ---#
 resource "aws_iam_role" "eks_cluster" {
   name = "${local.prefix}-eks-cluster-role"
 
@@ -25,7 +24,11 @@ resource "aws_iam_role_policy_attachment" "eks_cluster_policy" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"
 }
 
-#--- EKS Node Role ---#
+resource "aws_iam_role_policy_attachment" "eks_service_policy" {
+  role       = aws_iam_role.eks_cluster.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSServicePolicy"
+}
+
 resource "aws_iam_role" "eks_node" {
   name = "${local.prefix}-eks-node-role"
 
@@ -54,7 +57,6 @@ resource "aws_iam_role_policy_attachment" "eks_ecr_policy" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
 }
 
-#--- Lambda Role ---#
 resource "aws_iam_role" "lambda" {
   name = "${local.prefix}-lambda-role"
 
@@ -81,32 +83,17 @@ resource "aws_iam_policy" "lambda_policy" {
       },
       {
         Effect   = "Allow"
-        Action   = ["dynamodb:*"]
+        Action   = [
+          "dynamodb:GetRecords",
+          "dynamodb:GetShardIterator",
+          "dynamodb:DescribeStream",
+          "dynamodb:ListStreams"
+        ]
         Resource = "*"
       },
       {
         Effect   = "Allow"
-        Action   = ["sqs:*"]
-        Resource = "*"
-      },
-      {
-        Effect   = "Allow"
-        Action   = ["sns:*"]
-        Resource = "*"
-      },
-      {
-        Effect   = "Allow"
-        Action   = ["s3:*"]
-        Resource = "*"
-      },
-      {
-        Effect   = "Allow"
-        Action   = ["rds:*", "rds-data:*"]
-        Resource = "*"
-      },
-      {
-        Effect   = "Allow"
-        Action   = ["elasticache:*"]
+        Action   = ["sqs:SendMessage", "sqs:GetQueueUrl", "sqs:ReceiveMessage", "sqs:DeleteMessage"]
         Resource = "*"
       },
       {

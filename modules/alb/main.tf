@@ -1,9 +1,10 @@
 ###############################################################
-# modules/alb/main.tf — Application Load Balancer
+# modules/alb/main.tf — ALB with target groups on EKS node ports
 ###############################################################
 
 locals {
-  prefix = "${var.project}-${var.environment}"
+  prefix  = "${var.project}-${var.environment}"
+  targets = var.target_instance_ids
 }
 
 resource "aws_security_group" "alb" {
@@ -43,10 +44,10 @@ resource "aws_lb" "main" {
 
 resource "aws_lb_target_group" "auth" {
   name        = "${local.prefix}-tg-auth"
-  port        = 80
+  port        = var.auth_node_port
   protocol    = "HTTP"
   vpc_id      = var.vpc_id
-  target_type = "ip"
+  target_type = "instance"
 
   health_check {
     path                = "/health"
@@ -59,13 +60,12 @@ resource "aws_lb_target_group" "auth" {
   tags = { Name = "${local.prefix}-tg-auth" }
 }
 
-
 resource "aws_lb_target_group" "post" {
   name        = "${local.prefix}-tg-post"
-  port        = 80
+  port        = var.post_node_port
   protocol    = "HTTP"
   vpc_id      = var.vpc_id
-  target_type = "ip"
+  target_type = "instance"
 
   health_check {
     path                = "/health"
@@ -78,13 +78,12 @@ resource "aws_lb_target_group" "post" {
   tags = { Name = "${local.prefix}-tg-post" }
 }
 
-
 resource "aws_lb_target_group" "feed" {
   name        = "${local.prefix}-tg-feed"
-  port        = 80
+  port        = var.feed_node_port
   protocol    = "HTTP"
   vpc_id      = var.vpc_id
-  target_type = "ip"
+  target_type = "instance"
 
   health_check {
     path                = "/health"
@@ -95,6 +94,27 @@ resource "aws_lb_target_group" "feed" {
   }
 
   tags = { Name = "${local.prefix}-tg-feed" }
+}
+
+resource "aws_lb_target_group_attachment" "auth" {
+  count            = var.target_node_count
+  target_group_arn = aws_lb_target_group.auth.arn
+  target_id        = local.targets[count.index]
+  port             = var.auth_node_port
+}
+
+resource "aws_lb_target_group_attachment" "post" {
+  count            = var.target_node_count
+  target_group_arn = aws_lb_target_group.post.arn
+  target_id        = local.targets[count.index]
+  port             = var.post_node_port
+}
+
+resource "aws_lb_target_group_attachment" "feed" {
+  count            = var.target_node_count
+  target_group_arn = aws_lb_target_group.feed.arn
+  target_id        = local.targets[count.index]
+  port             = var.feed_node_port
 }
 
 resource "aws_lb_listener" "http" {
@@ -146,7 +166,7 @@ resource "aws_lb_listener_rule" "post" {
 
 resource "aws_lb_listener_rule" "feed" {
   listener_arn = aws_lb_listener.http.arn
-  priority     = 20
+  priority     = 30
 
   action {
     type             = "forward"
@@ -159,4 +179,3 @@ resource "aws_lb_listener_rule" "feed" {
     }
   }
 }
-
