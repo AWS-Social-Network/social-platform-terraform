@@ -31,6 +31,7 @@ provider "aws" {
 
   endpoints {
     ec2            = var.localstack_endpoint
+    ecr            = var.localstack_endpoint
     eks            = var.localstack_endpoint
     iam            = var.localstack_endpoint
     sts            = var.localstack_endpoint

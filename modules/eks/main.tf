@@ -14,7 +14,6 @@ locals {
 resource "aws_eks_cluster" "main" {
   name     = "${local.prefix}-cluster"
   role_arn = var.eks_role_arn
-  version  = "1.29"
 
   vpc_config {
     subnet_ids = var.private_subnet_ids
