@@ -161,12 +161,14 @@ resource "aws_iam_policy" "github_actions_policy" {
           "ec2:*",
           "s3:*",
           "dynamodb:*",
-          "sqs:*"
+          "sqs:*",
+          "ecr:*",
         ]
         Resource = "*"
       }
     ]
   })
+
 }
 
 resource "aws_iam_role_policy_attachment" "github_actions_attach" {
