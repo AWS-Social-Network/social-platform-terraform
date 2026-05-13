@@ -31,6 +31,7 @@ provider "aws" {
 
   endpoints {
     ec2            = var.localstack_endpoint
+    ecr            = var.localstack_endpoint
     eks            = var.localstack_endpoint
     iam            = var.localstack_endpoint
     sts            = var.localstack_endpoint
@@ -96,6 +97,7 @@ module "eks" {
   source             = "./modules/eks"
   project            = var.project
   environment        = var.environment
+  ghcr_pat           = var.ghcr_pat
   vpc_id             = module.vpc.vpc_id
   private_subnet_ids = module.vpc.private_subnet_ids
   eks_role_arn       = module.iam.eks_cluster_role_arn
