@@ -5,6 +5,7 @@ variable "ghcr_pat"           { type = string }
 variable "private_subnet_ids" { type = list(string) }
 variable "eks_role_arn"       { type = string }
 variable "node_role_arn"      { type = string }
+variable "ghcr_pat"           { type = string }
 
 output "cluster_name"       { value = aws_eks_cluster.main.name }
 output "cluster_endpoint"   { value = aws_eks_cluster.main.endpoint }
