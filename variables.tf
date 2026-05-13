@@ -44,3 +44,9 @@ variable "aws_account_id" {
   type        = string
   default     = "000000000000"
 }
+
+variable "ghcr_pat" {
+  description = "GitHub PAT with read:packages scope"
+  type        = string
+  sensitive   = true
+}

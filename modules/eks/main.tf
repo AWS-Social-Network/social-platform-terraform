@@ -5,9 +5,9 @@
 locals {
   prefix = "${var.project}-${var.environment}"
   services = [
-    { name = "auth"  , node_port = 30080 },
-    { name = "post"  , node_port = 30081 },
-    { name = "feed"  , node_port = 30082 },
+    { name = "auth-service"  , node_port = 30080 },
+    { name = "post-service"  , node_port = 30081 },
+    { name = "feed-service"  , node_port = 30082 },
   ]
 }
 
@@ -66,6 +66,29 @@ resource "kubernetes_namespace" "app" {
   }
 }
 
+resource "kubernetes_secret" "ghcr_pull_secret" {
+  metadata {
+    name      = "ghcr-pull-secret"
+    namespace = kubernetes_namespace.app.metadata[0].name
+  }
+
+  type = "kubernetes.io/dockerconfigjson"
+
+  data = {
+    ".dockerconfigjson" = jsonencode({
+      auths = {
+        "ghcr.io" = {
+          username = "AWS-Social-Network"
+          password = var.ghcr_pat
+          auth     = base64encode("AWS-Social-Network:${var.ghcr_pat}")
+        }
+      }
+    })
+  }
+
+  depends_on = [kubernetes_namespace.app]
+}
+
 resource "kubernetes_deployment" "services" {
   count = length(local.services)
 
@@ -94,6 +117,9 @@ resource "kubernetes_deployment" "services" {
       }
 
       spec {
+        image_pull_secrets {                                                       
+          name = kubernetes_secret.ghcr_pull_secret.metadata[0].name           
+        }  
         container {
           name  = local.services[count.index].name
           image = "hashicorp/http-echo:0.2.3"

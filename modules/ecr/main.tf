@@ -6,8 +6,8 @@ locals {
   prefix = "${var.project}-${var.environment}"
 }
 
-resource "aws_ecr_repository" "lambda" {
-  name                 = "${local.prefix}-stream-processor"
+resource "aws_ecr_repository" "repo" {
+  name                 = "${local.prefix}-repo"
   image_tag_mutability = "MUTABLE"
 
   image_scanning_configuration {
@@ -15,6 +15,6 @@ resource "aws_ecr_repository" "lambda" {
   }
 
   tags = {
-    Name = "${local.prefix}-stream-processor"
+    Name = "${local.prefix}-repo"
   }
 }
