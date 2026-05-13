@@ -98,17 +98,20 @@ module "eks" {
   project            = var.project
   environment        = var.environment
   ghcr_pat           = var.ghcr_pat
-  vpc_id             = module.vpc.vpc_id
   private_subnet_ids = module.vpc.private_subnet_ids
   eks_role_arn       = module.iam.eks_cluster_role_arn
   node_role_arn      = module.iam.eks_node_role_arn
 }
 
-provider "kubernetes" {
-  host                   = var.localstack_endpoint
-  cluster_ca_certificate = base64decode(module.eks.cluster_ca)
-  token                  = module.eks.cluster_auth_token
-  insecure               = true
+module "k8s" {
+  source             = "./modules/k8s"
+  project            = var.project
+  environment        = var.environment
+  ghcr_pat           = var.ghcr_pat
+  cluster_name       = module.eks.cluster_name
+  cluster_endpoint   = module.eks.cluster_endpoint
+  cluster_ca         = module.eks.cluster_ca
+  cluster_auth_token = module.eks.cluster_auth_token
 }
 
 module "alb" {
