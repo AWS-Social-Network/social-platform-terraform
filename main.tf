@@ -104,6 +104,13 @@ module "eks" {
   node_role_arn      = module.iam.eks_node_role_arn
 }
 
+provider "kubernetes" {
+  host                   = var.localstack_endpoint
+  cluster_ca_certificate = base64decode(module.eks.cluster_ca)
+  token                  = module.eks.cluster_auth_token
+  insecure               = true
+}
+
 module "alb" {
   source              = "./modules/alb"
   project             = var.project

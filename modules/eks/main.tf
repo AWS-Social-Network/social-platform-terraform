@@ -52,12 +52,7 @@ data "aws_instances" "eks_workers" {
     name   = "tag:eks:nodegroup-name"
     values = [aws_eks_node_group.main.node_group_name]
   }
-}
-
-provider "kubernetes" {
-  host                   = aws_eks_cluster.main.endpoint
-  cluster_ca_certificate = base64decode(aws_eks_cluster.main.certificate_authority[0].data)
-  token                  = data.aws_eks_cluster_auth.main.token
+  depends_on = [aws_eks_node_group.main]
 }
 
 resource "kubernetes_namespace" "app" {
